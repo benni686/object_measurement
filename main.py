@@ -7,7 +7,7 @@ def midpoint(ptA, ptB):
     return ((ptA[0] + ptB[0]) * 0.5, (ptA[1] + ptB[1]) * 0.5)
 
 # Load the image
-image = cv2.imread("test2.jpg")
+image = cv2.imread("test5.jpg")
 
 # Convert the image to grayscale
 gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -81,5 +81,5 @@ plt.axis('off')
 plt.show()
 
 # Save the final output image
-cv2.imwrite("sheet_measured_output.jpg", image)
-print("Image saved as 'sheet_measured_output.jpg'")
+cv2.imwrite("measured_output.jpg", image)
+print("Image saved as 'measured_output.jpg'")
