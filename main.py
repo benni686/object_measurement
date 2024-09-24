@@ -7,7 +7,7 @@ def midpoint(ptA, ptB):
     return ((ptA[0] + ptB[0]) * 0.5, (ptA[1] + ptB[1]) * 0.5)
 
 # Load the image
-image = cv2.imread("test.jpg")
+image = cv2.imread("test2.jpg")
 
 # Convert the image to grayscale
 gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -21,16 +21,19 @@ edges = cv2.Canny(blurred, 50, 100)
 # Find contours in the edged image
 contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-# Sort contours from left-to-right (optional)
-contours = sorted(contours, key=cv2.contourArea, reverse=True)[:5]
+# Sort contours in ascending order to focus on the smallest object first (e.g., reference card)
+contours = sorted(contours, key=cv2.contourArea)
 
-# Known width of the reference object (e.g., credit card or coin in cm)
-known_width = 8.5  # example for a credit card width in centimeters
+# Known width of the reference object (e.g., credit card width in cm)
+known_width = 5.5  # Adjust this as needed for the reference object
 
-# Loop over the contours to find the reference object and the target object
+reference_found = False
+sheet_measured = False
+
+# Loop over the contours to find the reference object (smallest) and the target object (sheet)
 for contour in contours:
-    # Ignore small contours that are not likely the objects we're looking for
-    if cv2.contourArea(contour) < 500:
+    # Ignore very small contours that are likely noise
+    if cv2.contourArea(contour) < 1000:
         continue
 
     # Compute the bounding box of the contour
@@ -38,13 +41,8 @@ for contour in contours:
     box = cv2.boxPoints(box)  # Get 4 corner points of the bounding box
     box = np.array(box, dtype="int")
 
-    # Order the points for clarity (top-left, top-right, bottom-right, bottom-left)
-    box = sorted(box, key=lambda x: x[0])
-
     # Draw the bounding box on the image
-    box = np.array(box, dtype="int")  # Convert list to NumPy array
     cv2.drawContours(image, [box], 0, (0, 255, 0), 2)
-
 
     # Compute the midpoints for the width and height of the bounding box
     (tl, tr, br, bl) = box
@@ -57,27 +55,31 @@ for contour in contours:
     width = np.sqrt(((tltrX - blbrX) ** 2) + ((tltrY - blbrY) ** 2))
     height = np.sqrt(((tlblX - trbrX) ** 2) + ((tlblY - trbrY) ** 2))
 
-    # Assuming the first detected object is the reference object
-    if 'scale' not in locals():
-        # Compute the pixel-per-metric ratio (pixels per cm)
+    # Assuming the first detected object is the reference object (smallest)
+    if not reference_found:
+        # Compute the pixel-per-metric ratio (pixels per cm) based on the smaller reference object
         scale = width / known_width
+        reference_found = True
         print(f"Pixel per cm ratio: {scale}")
-
-    else:
-        # Measure the target object
-        object_width_cm = width / scale
-        object_height_cm = height / scale
+    elif reference_found and not sheet_measured:
+        # Measure the sheet (target object, which is larger)
+        sheet_width_cm = width / scale
+        sheet_height_cm = height / scale
 
         # Display the measurements on the image
-        cv2.putText(image, f"Width: {object_width_cm:.1f} cm", (int(tltrX - 10), int(tltrY - 10)),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
-        cv2.putText(image, f"Height: {object_height_cm:.1f} cm", (int(trbrX + 10), int(trbrY)),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+        cv2.putText(image, f"Width: {sheet_width_cm:.1f} cm", (int(tltrX - 10), int(tltrY - 10)),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+        cv2.putText(image, f"Height: {sheet_height_cm:.1f} cm", (int(trbrX + 10), int(trbrY)),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+        sheet_measured = True
+        break  # Stop after measuring the sheet
 
 # Show the final output image
 plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))  # Convert BGR to RGB for proper color display
-plt.title("Measured Image")
-plt.axis('off')  # Hide the axis
+plt.title("Measured Sheet and Reference Object")
+plt.axis('off')  
 plt.show()
-cv2.imwrite("measured_image_output.jpg", image)
-print("Image saved as 'measured_image_output.jpg'")
+
+# Save the final output image
+cv2.imwrite("sheet_measured_output.jpg", image)
+print("Image saved as 'sheet_measured_output.jpg'")
